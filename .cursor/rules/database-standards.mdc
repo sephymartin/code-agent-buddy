@@ -1,0 +1,62 @@
+---
+description: 数据库建表规范标准
+globs: **/*.sql
+alwaysApply: false
+---
+
+# 数据库建表规范
+
+## 表命名规范
+
+- 系统表：`sys_*` 前缀（如 `sys_user`、`sys_role`）
+- 业务表：`biz_*` 或业务模块前缀（如 `saobei_merchant`）
+- 关联表：`{主表}_{关联表}`（如 `sys_user_role`）
+- 统一使用下划线命名
+
+## 字段命名规范
+
+### 核心字段
+
+- **主键**：`id` bigint NOT NULL AUTO_INCREMENT
+- **审计字段**（按需添加）：
+  - `created_by` bigint DEFAULT NULL COMMENT '创建人ID'
+  - `created_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+  - `updated_by` bigint DEFAULT NULL COMMENT '更新人ID'
+  - `updated_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+- **逻辑删除**：`deleted` bigint NOT NULL DEFAULT '0' COMMENT '删除标记（0-未删除，非0-已删除）'
+- **外键**：`{表名}_id`（如 `user_id`、`role_id`）
+- **状态字段**：`{实体}_status`（如 `user_status`、`role_status`）
+
+### 命名注意事项
+
+- **禁止使用数据库关键字**：字段名不能使用 MySQL 保留关键字（如 `order`、`group`、`select`、`table`、`key`、`index`、`type`、`status`、`user`、`date`、`time`、`timestamp`、`desc`、`asc`、`limit`、`offset` 等）
+- 如果必须使用关键字含义的字段，应使用替代命名（如 `order` → `order_no`/`order_id`，`group` → `group_id`/`group_name`，`type` → `type_code`/`type_name`，`status` → `status_code`/`status_name`）
+
+## 字段类型规范
+
+- **主键**：`bigint NOT NULL AUTO_INCREMENT`
+- **字符串**：`varchar(长度)` 或 `text`/`longtext`，**默认值使用空字符串 `''`**（不使用 NULL）
+- **大文本字段**：遇到 `text`/`longtext` 字段时，**必须咨询用户是否需要进行垂直拆分**（Vertical Partitioning），将大文本字段拆分到单独的扩展表中
+- **时间**：`datetime NOT NULL DEFAULT CURRENT_TIMESTAMP`（created_time 和 updated_time 必须 NOT NULL）
+- **布尔**：`tinyint` 或 `tinyint(1)` DEFAULT '0'/'1'
+- **金额**：`DECIMAL(12, 2)`（统一使用 12,2 精度）
+- **JSON**：`json DEFAULT NULL`
+
+## 索引命名规范
+
+- **唯一索引**：`unq_*` 或 `uk_*`（如 `unq_username`、`uk_merchant_no`）
+- **普通索引**：`idx_*`（如 `idx_user_id`、`idx_merchant_no`）
+- **联合唯一索引**：包含 `deleted` 字段时需包含在索引中
+
+## 注释规范
+
+- **表注释**：`COMMENT='表名'`
+- **字段注释**：`COMMENT '字段说明'`（中文）
+- **枚举值字段**：**不在字段注释中说明枚举值**，枚举值的说明通过提示从单独的字典表（`sys_dict_type`/`sys_dict_item`）中获取
+- **脚本头部**：包含模块名、生成时间等信息
+
+## 表结构规范
+
+- **引擎**：`ENGINE=InnoDB`
+- **字符集**：**不在 DDL 中指定字符集**，使用数据库默认字符集
+- **表分隔**：使用 `-- -----------------------------------------------------------` 分隔

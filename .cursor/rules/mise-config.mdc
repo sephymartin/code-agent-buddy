@@ -1,0 +1,104 @@
+---
+description: 主动检查并遵循项目中的 mise 环境配置
+alwaysApply: true
+---
+
+# Mise 环境配置检查（全局规则）
+
+## ⚠️ 重要提醒
+
+**在处理任何项目任务前，必须首先检查并遵循项目中的 mise 配置文件！**
+
+## 核心原则
+
+1. **主动检查**：在开始任何任务前，必须主动查找并读取 `.mise.toml`、`.mise.yaml` 或 `.mise.yml` 配置文件
+2. **遵循配置**：所有命令执行必须使用 mise 配置的工具版本
+3. **环境感知**：在执行命令前，确保 mise 环境已正确激活或使用 `mise exec` 包装命令
+
+## 标准检查流程
+
+### 步骤 1：查找配置文件
+```bash
+# 使用工具查找
+glob_file_search(".mise.toml")
+glob_file_search(".mise.yaml") 
+glob_file_search(".mise.yml")
+# 或检查项目根目录
+list_dir(project_root)
+```
+
+### 步骤 2：读取配置
+```bash
+# 读取找到的配置文件
+read_file(".mise.toml")
+```
+
+### 步骤 3：应用配置
+- 如果存在配置，在执行相关命令时使用 `mise exec -- <command>`
+- 或在命令说明中明确提醒需要激活 mise 环境
+
+## 常见工具配置
+
+```toml
+[tools]
+java = "temurin-25"      # Java 版本
+maven = "3.9"            # Maven 版本
+node = "20"              # Node.js 版本
+python = "3.11"          # Python 版本
+pnpm = "8"               # pnpm 版本
+```
+
+## 命令执行规范
+
+### Java/Maven 项目
+```bash
+# ❌ 错误：直接执行，可能使用错误的版本
+mvn clean install
+java -version
+
+# ✅ 正确：使用 mise 配置的版本
+mise exec -- mvn clean install
+mise exec -- java -version
+```
+
+### Node.js 项目
+```bash
+# ❌ 错误：直接执行
+npm install
+pnpm build
+
+# ✅ 正确：使用 mise 配置的版本
+mise exec -- npm install
+mise exec -- pnpm build
+```
+
+### Python 项目
+```bash
+# ❌ 错误：直接执行
+python -m pip install -r requirements.txt
+
+# ✅ 正确：使用 mise 配置的版本
+mise exec -- python -m pip install -r requirements.txt
+```
+
+## 强制检查清单
+
+在**每次**处理项目任务时，必须完成以下检查：
+
+- [ ] ✅ 已使用 `glob_file_search` 或 `list_dir` 检查项目根目录是否存在 mise 配置文件
+- [ ] ✅ 如果存在配置文件，已使用 `read_file` 读取配置内容
+- [ ] ✅ 已识别配置中定义的工具和版本
+- [ ] ✅ 在执行任何相关命令前，已考虑使用 `mise exec` 或确保环境已激活
+- [ ] ✅ 在建议或生成命令时，已包含 mise 环境配置的说明
+
+## 特殊情况处理
+
+1. **多项目工作区**：检查每个项目根目录的配置
+2. **子项目**：检查子项目目录中是否有独立的配置
+3. **配置文件不存在**：如果不存在，可以提醒用户考虑添加，但不强制要求
+
+## 记忆要点
+
+- **不要假设**：不要假设项目使用系统默认的工具版本
+- **主动检查**：每次都要检查，即使之前检查过
+- **明确说明**：在建议命令时，明确说明是否需要 mise 环境

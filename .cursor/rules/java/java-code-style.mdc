@@ -1,0 +1,160 @@
+---
+description: Java 代码风格规范
+globs: ["**/*.java"]
+---
+
+## Java 代码风格规范
+
+### 代码文件头
+- ❌ **禁止生成 License 相关的代码头**（如 Copyright、License 声明等）
+- ✅ 生成 Java 代码时，直接从 `package` 声明开始，或从类注释开始（如果需要类注释）
+
+### 枚举值格式
+- 每个枚举值独占一行，用逗号结尾，添加 `//` 注释说明用途
+- 分号单独一行作为结束标识
+
+### Javadoc 注释规范
+- 使用空行作为段落分隔
+- 禁止使用 `<br>` 或 `<p>` 标签
+
+---
+
+### Lombok 使用规范
+
+#### 配置
+项目需包含 `lombok.config`：`config.stopBubbling = true`、`lombok.tostring.callsuper = CALL`、`lombok.equalsandhashcode.callsuper = CALL`
+
+#### 注解规范
+
+| 类类型 | 推荐注解 |
+|--------|----------|
+| DO 实体类 | `@Data` |
+| DTO 类 | `@Data` + `@NoArgsConstructor` + `@AllArgsConstructor` |
+| Service 实现类 | `@Slf4j` + `@RequiredArgsConstructor` |
+| Controller 类 | `@RequiredArgsConstructor` |
+
+#### @Builder
+- 仅在需要构建器模式时使用
+- 默认只用 `@Builder`
+- 需要 JSON 反序列化时：`@Builder` + `@Jacksonized`
+- ❌ 禁止 `@Builder` + `@NoArgsConstructor` + `@AllArgsConstructor`（冗余）
+
+#### @NonNull
+用于方法参数校验，表示参数不能为 null
+
+---
+
+### Spring 注解规范
+
+#### 依赖注入
+- ✅ 使用 `@RequiredArgsConstructor` + `final` 字段（构造函数注入）
+- ❌ 禁止 `@Resource` / `@Autowired` 字段注入
+
+#### MyBatis-Plus Service
+- ❌ 禁止 `IService` / `ServiceImpl`（`com.baomidou.mybatisplus.extension.service`）
+- ✅ Service 注入 Dao，通过 Dao 进行数据访问
+
+#### 事务注解
+- ✅ Service 方法包含事务性操作时，必须使用 `@Transactional(rollbackFor = Exception.class)`
+- ❌ 禁止仅使用 `@Transactional`（默认只回滚 RuntimeException 和 Error）
+
+**示例：**
+```java
+@Service
+@RequiredArgsConstructor
+public class OrderServiceImpl implements OrderService {
+    
+    @Transactional(rollbackFor = Exception.class)
+    public void createOrder(CreateOrderCmd cmd) {
+        // 事务性操作
+    }
+}
+```
+
+---
+
+## 分层架构规约
+
+**层次结构：** `Controller → Manager (可选) → Service → Dao`
+
+**调用规则：**
+- ✅ 允许：Controller → Manager/Service/Dao（Dao 仅限 Query）、Manager → Service/Dao（Dao 仅限 Query）、Service → Dao
+- ❌ 禁止：Dao → Service/Manager/Controller、Service → Manager/Controller、Manager → Controller
+
+---
+
+## 命名规约
+
+| 层次 | 包路径 | 类名后缀 | 示例 |
+|------|--------|---------|------|
+| Controller | `..controller..` | `Controller` | `SysUserController` |
+| Service | `..service..` | `Service` / `ServiceImpl` | `SysUserService` / `SysUserServiceImpl` |
+| Dao | `..dao..` | `Dao` | `SysUserDao` ❌ `SysUserMapper` |
+| Entity | `..entity..` | `DO` | `SysUserDO` ❌ `SysUser` |
+| Command | `..cmd..` | `Cmd` | `CreatePaymentOrderCmd` |
+| Query | `..query..` | `Query` | `InvestUserQuery` |
+
+---
+
+## Utils 类规约
+
+**识别：** 类名以 `Utils`/`Util` 结尾，或位于 `..util..`/`..utils..` 包
+
+**规约：**
+- ❌ 禁止 Spring 组件注解（`@Component` / `@Service` 等）
+- ✅ 方法必须是 `public static`，类必须是 `final` 或 `abstract`，提供私有构造函数
+
+---
+
+## Command/Query 差异化管理
+
+| 类型 | 识别方式 | 调用约束 |
+|------|---------|---------|
+| **Command**（写） | 类名以 `Cmd` 结尾、实现 `AbstractCommand` 或位于 `..cmd..` 包 | ✅ Controller/Manager → Service<br>❌ Controller/Manager → Dao |
+| **Query**（读） | 类名以 `Query` 结尾或位于 `..query..` 包 | ✅ 允许跨层调用 Dao |
+
+---
+
+## 循环依赖规约
+**严格禁止任何形式的循环依赖**（模块/包/类级别）
+
+---
+
+## 响应式编程规约
+
+**核心原则**：响应式客户端（如 `WebClient`）仅限底层 HTTP 客户端层（`*Api`、`*Spider`），必须通过 `.block()` 转换为同步结果，禁止将 `Mono`/`Flux` 向上层传播。
+
+**规约：**
+- ✅ 允许：底层 HTTP 客户端层使用 `WebClient`
+- ✅ 要求：使用 `.block()`/`.blockOptional()` 将响应式类型转换为同步结果
+- ❌ 禁止：Service/Manager/Controller 层返回 `Mono`、`Flux`、`CompletableFuture` 等异步类型
+
+**示例：**
+```java
+// ✅ 正确：底层使用 WebClient，返回同步结果
+public class SaobeiApi {
+    public PaymentOrderResponse queryOrder(PaymentOrderRequest request) {
+        return webClient.post().uri(url).bodyValue(request).retrieve()
+            .bodyToMono(PaymentOrderResponse.class)
+            .block(Duration.ofSeconds(30)); // 必须转换为同步
+    }
+}
+
+// ❌ 错误：Service 层返回 Mono
+@Service
+public class SaobeiApi {
+    public Mono<PaymentOrderResponse> queryOrder(...) { } // 禁止
+}
+```
+
+---
+
+## 排除规则
+以下类型不适用上述架构规约：
+- 测试类：`..test..`
+- 配置类：`..config..`
+- DTO/VO 类：`..dto..`、`..vo..`
+- 枚举类：`..enums..`、`..enum..`
+- 框架类：`java..`、`jakarta..`、`org.springframework..`、`com.baomidou..`
+
+---
