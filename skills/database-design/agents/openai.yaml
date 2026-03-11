@@ -1,0 +1,7 @@
+interface:
+  display_name: "Database Design"
+  short_description: "database design conventions"
+  default_prompt: "Use $database-design to draft the database design section for a backend technical proposal."
+
+policy:
+  allow_implicit_invocation: true
